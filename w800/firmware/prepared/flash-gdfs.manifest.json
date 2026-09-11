@@ -1,0 +1,64 @@
+{
+  "model": "Sony Ericsson W800i",
+  "layout": "inferred GDFS v0 active banks",
+  "flash_base": 1140850688,
+  "flash_size": 33554432,
+  "gdfs_base": 1173356544,
+  "gdfs_size": 1048576,
+  "block_size": 131072,
+  "active_banks": 7,
+  "erased_spare_blocks": 1,
+  "unit_count": 982,
+  "banks": [
+    {
+      "bank": 0,
+      "unit_count": 249,
+      "payload_bytes": 16754
+    },
+    {
+      "bank": 1,
+      "unit_count": 422,
+      "payload_bytes": 11037
+    },
+    {
+      "bank": 2,
+      "unit_count": 262,
+      "payload_bytes": 8292
+    },
+    {
+      "bank": 3,
+      "unit_count": 16,
+      "payload_bytes": 15032
+    },
+    {
+      "bank": 4,
+      "unit_count": 14,
+      "payload_bytes": 2027
+    },
+    {
+      "bank": 5,
+      "unit_count": 13,
+      "payload_bytes": 2306
+    },
+    {
+      "bank": 6,
+      "unit_count": 6,
+      "payload_bytes": 1520
+    }
+  ],
+  "inputs": [
+    {
+      "file": "flash.bin",
+      "sha256": "aba857ad6a224a05fac66d052939bc6038490e4f52d04386c52813817ab90093"
+    },
+    {
+      "file": "W800_GDFS.bin",
+      "sha256": "068022514e3dc40295b78a4ac81900f8917bb671744491ab68425abf3077c2e9"
+    }
+  ],
+  "flash_sha256": "b35cae396f60338af53e926e1054bfeb2cd21be637894e8fae1394f772de893f",
+  "gdfs_sha256": "a10dbcaadb0742b20396d4f5e5d3c737f1c7a9fe5ce5d1fd4cb406c4dbbd44af",
+  "preserved_main_fs_bytes": true,
+  "original_boot_rom_supplied": false,
+  "note": "Initial storage metadata is reconstructed; backup payloads remain exact."
+}
