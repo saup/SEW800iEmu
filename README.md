@@ -1,5 +1,7 @@
 # W800EmuToShare — Sony Ericsson W800i Emulator
 
+![GUI](GUI.png)
+
 Runs the **original Sony Ericsson W800i firmware (R1L002)** unmodified on a
 custom **QEMU machine model of the DB2010 platform** (ARM926EJ-S, ARM/Thumb).
 This is not a UI recreation: the phone window shows only firmware-rendered
