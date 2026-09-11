@@ -1,0 +1,54 @@
+{
+  "mask": "Per-region original foreground polarity; selected file names dark, unselected file names light, Java canvas contrasting pixels",
+  "regions": {
+    "games_puzzle": {
+      "rect": [
+        42,
+        56,
+        110,
+        17
+      ],
+      "sha256": "272f201fad0155dfa351b37ce4de0652a353360df850d97a22a84bfb0f5ce357",
+      "pixels": 609,
+      "source": "java-two-games-registry.png",
+      "mask": "dark"
+    },
+    "games_quadra": {
+      "rect": [
+        42,
+        81,
+        102,
+        15
+      ],
+      "sha256": "53cc47b26036f8159030e2bf5df95233b1137027f4d895b899bc72862715ff46",
+      "pixels": 557,
+      "source": "java-two-games-registry.png",
+      "mask": "light",
+      "reviewed_orange_source": "java-provisioning-test-failure-games_quadra.png"
+    },
+    "quadra_new_game": {
+      "rect": [
+        58,
+        78,
+        76,
+        16
+      ],
+      "sha256": "75420a0f2ee1c49775bbb8cb8d352b0dd5dfcb11a68f741864abe24f5489ec6c",
+      "pixels": 398,
+      "source": "quadrapop-direct-launch.png",
+      "mask": "contrast"
+    },
+    "quadra_score": {
+      "rect": [
+        135,
+        82,
+        37,
+        15
+      ],
+      "sha256": "c1919639f778a2125b64d7d6f8dc157a16ef9d78e4e0b7bb359de476ad1a6e74",
+      "pixels": 106,
+      "source": "quadrapop-new-game.png",
+      "mask": "contrast"
+    }
+  }
+}

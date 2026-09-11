@@ -1,0 +1,37 @@
+{
+  "regions": {
+    "native_after_upload": {
+      "source": "notify-04-native-event.png",
+      "rect": [
+        25,
+        55,
+        90,
+        18
+      ],
+      "mask": "light",
+      "sha256": "e726dc0c8165d0c7f10692e4ce102bb0da981182371a4384ec18983dda81a65e"
+    },
+    "delete_quadra": {
+      "source": "notify-05-delete-quadra.png",
+      "rect": [
+        34,
+        86,
+        116,
+        29
+      ],
+      "mask": "light",
+      "sha256": "689db0c6431214efc562ef4a755f93e5cb949eaa6a5bc110456b439babbd853a"
+    },
+    "quadra_resume_game": {
+      "rect": [
+        58,
+        77,
+        76,
+        18
+      ],
+      "mask": "contrast",
+      "sha256": "d5ca0c463e2e5ca93381548964ea9e8b35565c8001f2d9f040c984291e781351",
+      "source": "live-filesystem-probe/notify-12-quadra-relaunched.png"
+    }
+  }
+}

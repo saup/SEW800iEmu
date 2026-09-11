@@ -1,0 +1,28 @@
+--- a/audio/coreaudio.m
++++ b/audio/coreaudio.m
+@@ -882,7 +882,13 @@
+ {
+ }
+ 
++#include "coreaudio-input.inc"
++
+ static struct audio_pcm_ops coreaudio_pcm_ops = {
++    .init_in = coreaudio_init_in,
++    .fini_in = coreaudio_fini_in,
++    .read = coreaudio_read,
++    .enable_in = coreaudio_enable_in,
+     .init_out = coreaudio_init_out,
+     .fini_out = coreaudio_fini_out,
+   /* wrapper for audio_generic_write */
+@@ -902,9 +908,9 @@
+     .fini           = coreaudio_audio_fini,
+     .pcm_ops        = &coreaudio_pcm_ops,
+     .max_voices_out = 1,
+-    .max_voices_in  = 0,
++    .max_voices_in  = 1,
+     .voice_size_out = sizeof (coreaudioVoiceOut),
+-    .voice_size_in  = 0
++    .voice_size_in  = sizeof(coreaudioVoiceIn)
+ };
+ 
+ static void register_audio_coreaudio(void)

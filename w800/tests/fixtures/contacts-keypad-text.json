@@ -1,0 +1,116 @@
+{
+  "source": "Original R1L002 LCD, manually reviewed contacts-production-keyboard.json run",
+  "algorithm": "Dark text mask: red, green and blue each < 128; one byte per pixel, row major",
+  "regions": {
+    "name_Test": {
+      "rect": [
+        20,
+        139,
+        39,
+        16
+      ],
+      "sha256": "5d723eae3683e0350c528b98c7bef2adf26a23c3889c69228af0c07898d3cc22",
+      "source_png": "contacts-production-keyboard-name-Test.png",
+      "dark_pixels": 183
+    },
+    "number_5550100": {
+      "rect": [
+        20,
+        139,
+        76,
+        16
+      ],
+      "sha256": "f2cb9e73973abe3ccb0dc606cbf249256a0b2157d55cbdaf03f2e235bbe1c8fb",
+      "source_png": "contacts-production-keyboard-number-5550100.png",
+      "dark_pixels": 446
+    },
+    "list_Test": {
+      "rect": [
+        6,
+        126,
+        40,
+        16
+      ],
+      "sha256": "a0325a4e2cf04b0d42e69d9b8080d5d8da18f9cf9daf3aee14ed4a31dcf1a6ff",
+      "source_png": "contacts-production-keyboard-contacts-reopened-ready.png",
+      "dark_pixels": 182
+    },
+    "list_5550100": {
+      "rect": [
+        23,
+        149,
+        72,
+        16
+      ],
+      "sha256": "2b09a31203618098707c4246e74def85f2b8643e848215bfe392c7dacf2649db",
+      "source_png": "contacts-production-keyboard-contacts-reopened-ready.png",
+      "dark_pixels": 322
+    },
+    "multitap_tdp": {
+      "rect": [
+        20,
+        139,
+        28,
+        16
+      ],
+      "sha256": "75a73f2cb407eabd845deeb80450fd5d60db514bdc491c4f0db8cf67a21ff6b6",
+      "source_png": "contacts-production-keyboard-clear-one.png",
+      "dark_pixels": 189
+    },
+    "input_lowercase": {
+      "rect": [
+        106,
+        60,
+        22,
+        18
+      ],
+      "sha256": "600faa6578d5232b4139dbb207554261f4bd4c01fc1d47e3ee2e58ae5b5eacb3",
+      "source_png": "contacts-production-keyboard-t9-on-empty.png",
+      "dark_pixels": 49
+    },
+    "t9_on": {
+      "rect": [
+        129,
+        60,
+        25,
+        18
+      ],
+      "sha256": "006d2a3f7897351babf8bbf383327106039ad43adfef884793683d12404ff606",
+      "source_png": "contacts-production-keyboard-t9-hold-on.png",
+      "dark_pixels": 69
+    },
+    "t9_off": {
+      "rect": [
+        129,
+        60,
+        25,
+        18
+      ],
+      "sha256": "15308fa38ef2964d8267500d4c25b27a51ef20e736817baff196c60380f8c73d",
+      "source_png": "contacts-production-keyboard-t9-hold-off.png",
+      "dark_pixels": 0
+    },
+    "t9_test": {
+      "rect": [
+        59,
+        89,
+        33,
+        14
+      ],
+      "sha256": "a9f180dbbed35fc8c0618361d293f266717195a2a9d8de835689ee35c8c045ee",
+      "source_png": "contacts-production-keyboard-t9-word.png",
+      "dark_pixels": 181
+    },
+    "t9_ter": {
+      "rect": [
+        59,
+        89,
+        26,
+        14
+      ],
+      "sha256": "fc47985cd8332cdf5091d9efe13d10788cca148f3c3124beaed6e4aff529d42c",
+      "source_png": "contacts-production-keyboard-t9-clear.png",
+      "dark_pixels": 134
+    }
+  }
+}

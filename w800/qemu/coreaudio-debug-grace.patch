@@ -1,0 +1,434 @@
+--- a/audio/coreaudio.m
++++ b/audio/coreaudio.m
+@@ -29,6 +29,9 @@
+ #include "qemu/main-loop.h"
+ #include "qemu/module.h"
+ #include "qemu/audio.h"
++#include "qemu/timer.h"
++#include "qapi/error.h"
++#include "system/runstate.h"
+ 
+ #define AUDIO_CAP "coreaudio"
+ #include "audio_int.h"
+@@ -42,7 +45,88 @@
+     UInt32 audioDevicePropertyBufferFrameSize;
+     AudioDeviceIOProcID ioprocid;
+     bool enabled;
++    QEMUTimer *debug_stop_timer;
++    uint32_t debug_stop_grace;
++    bool debug_diagnostics;
++    uint64_t debug_deferred, debug_cancelled, debug_expired;
++    uint64_t hal_start_calls, hal_stop_calls;
++    /* The IOProc updates these counters under buf_mutex. */
++    uint64_t io_callbacks, io_frames, io_underruns, io_underrun_frames;
+ } coreaudioVoiceOut;
++
++/* CoreAudio PCM layout helpers: also exercised by the focused host test. */
++static void coreaudio_clear_buffers(AudioBufferList *buffers)
++{
++    for (UInt32 i = 0; i < buffers->mNumberBuffers; i++) {
++        AudioBuffer *buffer = &buffers->mBuffers[i];
++
++        if (buffer->mData && buffer->mDataByteSize) {
++            memset(buffer->mData, 0, buffer->mDataByteSize);
++        }
++    }
++}
++
++static size_t coreaudio_buffer_frames(const AudioBufferList *buffers,
++                                     unsigned channels, unsigned sample_bytes)
++{
++    unsigned remaining = channels;
++    size_t frames = SIZE_MAX;
++
++    if (!channels || !sample_bytes) {
++        return 0;
++    }
++    for (UInt32 i = 0; i < buffers->mNumberBuffers && remaining; i++) {
++        const AudioBuffer *buffer = &buffers->mBuffers[i];
++        size_t stride = (size_t)buffer->mNumberChannels * sample_bytes;
++
++        if (!stride) {
++            continue;
++        }
++        if (!buffer->mData) {
++            return 0;
++        }
++        size_t capacity = buffer->mDataByteSize / stride;
++        frames = frames < capacity ? frames : capacity;
++        remaining -= remaining < buffer->mNumberChannels ?
++                     remaining : buffer->mNumberChannels;
++    }
++    return remaining ? 0 : frames;
++}
++
++static void coreaudio_copy_frames(AudioBufferList *buffers, size_t output_frame,
++                                 const void *input, size_t frames,
++                                 unsigned channels, unsigned sample_bytes)
++{
++    const uint8_t *source = input;
++    size_t source_stride = (size_t)channels * sample_bytes;
++    unsigned source_channel = 0;
++
++    for (UInt32 i = 0; i < buffers->mNumberBuffers && source_channel < channels; i++) {
++        AudioBuffer *buffer = &buffers->mBuffers[i];
++        unsigned remaining = channels - source_channel;
++        unsigned copy_channels = remaining < buffer->mNumberChannels ?
++                                 remaining : buffer->mNumberChannels;
++        size_t stride = (size_t)buffer->mNumberChannels * sample_bytes;
++        uint8_t *destination = buffer->mData;
++
++        if (!copy_channels) {
++            continue;
++        }
++        destination += output_frame * stride;
++        if (source_channel == 0 && copy_channels == channels &&
++            buffer->mNumberChannels == channels) {
++            memcpy(destination, source, frames * source_stride);
++        } else {
++            for (size_t frame = 0; frame < frames; frame++) {
++                memcpy(destination + frame * stride,
++                       source + frame * source_stride + source_channel * sample_bytes,
++                       copy_channels * sample_bytes);
++            }
++        }
++        source_channel += copy_channels;
++    }
++}
++/* End CoreAudio PCM layout helpers. */
+ 
+ static const AudioObjectPropertyAddress voice_addr = {
+     kAudioHardwarePropertyDefaultOutputDevice,
+@@ -130,6 +214,19 @@
+                                       NULL,
+                                       size,
+                                       d);
++}
++
++static OSStatus coreaudio_get_streamformat(AudioDeviceID id,
++                                           AudioStreamBasicDescription *d)
++{
++    UInt32 size = sizeof(*d);
++    AudioObjectPropertyAddress addr = {
++        kAudioDevicePropertyStreamFormat,
++        kAudioDevicePropertyScopeOutput,
++        kAudioObjectPropertyElementMain
++    };
++
++    return AudioObjectGetPropertyData(id, &addr, 0, NULL, &size, d);
+ }
+ 
+ static OSStatus coreaudio_get_isrunning(AudioDeviceID id, UInt32 *result)
+@@ -306,12 +403,16 @@
+     const AudioTimeStamp *inOutputTime,
+     void *hwptr)
+ {
+-    UInt32 frameCount, pending_frames;
+-    void *out = outOutputData->mBuffers[0].mData;
++    size_t frameCount, pending_frames, copied_frames, output_frame = 0;
+     HWVoiceOut *hw = hwptr;
+     coreaudioVoiceOut *core = (coreaudioVoiceOut *) hwptr;
+     size_t len;
+-
++    unsigned sample_bytes = hw->info.bytes_per_frame / hw->info.nchannels;
++
++    /* HAL buffers may be interleaved or split into channel groups. Always
++     * initialize all of them, including any unused channels and padding.
++     */
++    coreaudio_clear_buffers(outOutputData);
+     if (coreaudio_buf_lock (core, "audioDeviceIOProc")) {
+         inInputTime = 0;
+         return 0;
+@@ -322,17 +423,22 @@
+         return 0;
+     }
+ 
+-    frameCount = core->audioDevicePropertyBufferFrameSize;
++    core->io_callbacks++;
++    frameCount = coreaudio_buffer_frames(outOutputData, hw->info.nchannels,
++                                        sample_bytes);
+     pending_frames = hw->pending_emul / hw->info.bytes_per_frame;
+-
+-    /* if there are not enough samples, set signal and return */
+-    if (pending_frames < frameCount) {
+-        inInputTime = 0;
+-        coreaudio_buf_unlock (core, "audioDeviceIOProc(empty)");
+-        return 0;
+-    }
+-
+-    len = frameCount * hw->info.bytes_per_frame;
++    copied_frames = MIN(pending_frames, frameCount);
++
++    /* A short final buffer must drain too. Leaving it in the ring until a
++     * full callback is available prevents finite streams from completing.
++     * The remaining host frames already contain silence from clear_buffers.
++     */
++    if (copied_frames < frameCount) {
++        core->io_underruns++;
++        core->io_underrun_frames += frameCount - copied_frames;
++    }
++
++    len = copied_frames * hw->info.bytes_per_frame;
+     while (len) {
+         size_t write_len, start;
+ 
+@@ -342,12 +448,17 @@
+         write_len = MIN(MIN(hw->pending_emul, len),
+                         hw->size_emul - start);
+ 
+-        memcpy(out, hw->buf_emul + start, write_len);
++        size_t frames = write_len / hw->info.bytes_per_frame;
++
++        assert(frames * hw->info.bytes_per_frame == write_len);
++        coreaudio_copy_frames(outOutputData, output_frame, hw->buf_emul + start,
++                              frames, hw->info.nchannels, sample_bytes);
+         hw->pending_emul -= write_len;
+         len -= write_len;
+-        out += write_len;
+-    }
+-
++        output_frame += frames;
++    }
++
++    core->io_frames += copied_frames;
+     coreaudio_buf_unlock (core, "audioDeviceIOProc");
+     return 0;
+ }
+@@ -439,6 +550,24 @@
+                                    streamBasicDescription.mSampleRate);
+         core->outputDeviceID = kAudioDeviceUnknown;
+         return status;
++    }
++
++    if (core->debug_diagnostics) {
++        AudioStreamBasicDescription actual = { 0 };
++
++        status = coreaudio_get_streamformat(core->outputDeviceID, &actual);
++        if (status == kAudioHardwareNoError) {
++            dolog("W800_COREAUDIO_FORMAT requested_hz=%d actual_hz=%.0f "
++                  "channels=%u bytes_per_frame=%u callback_frames=%u "
++                  "buffer_count=%u debug_stop_grace_us=%u\n",
++                  core->hw.info.freq, actual.mSampleRate,
++                  (unsigned)actual.mChannelsPerFrame,
++                  (unsigned)actual.mBytesPerFrame,
++                  (unsigned)core->audioDevicePropertyBufferFrameSize,
++                  core->bufferCount, core->debug_stop_grace);
++        } else {
++            coreaudio_logerr(status, "Could not read back stream format\n");
++        }
+     }
+ 
+     /*
+@@ -482,6 +611,7 @@
+         }
+ 
+         if (isrunning) {
++            core->hal_stop_calls++;
+             status = AudioDeviceStop(core->outputDeviceID, core->ioprocid);
+             if (status != kAudioHardwareBadDeviceError && status != kAudioHardwareNoError) {
+                 coreaudio_logerr(status, "Could not stop playback\n");
+@@ -516,6 +646,7 @@
+     if (core->enabled) {
+         /* start playback */
+         if (!isrunning) {
++            core->hal_start_calls++;
+             status = AudioDeviceStart(core->outputDeviceID, core->ioprocid);
+             if (status != kAudioHardwareBadDeviceError && status != kAudioHardwareNoError) {
+                 coreaudio_logerr (status, "Could not resume playback\n");
+@@ -524,12 +655,54 @@
+     } else {
+         /* stop playback */
+         if (isrunning) {
++            core->hal_stop_calls++;
+             status = AudioDeviceStop(core->outputDeviceID,
+                                      core->ioprocid);
+             if (status != kAudioHardwareBadDeviceError && status != kAudioHardwareNoError) {
+                 coreaudio_logerr(status, "Could not pause playback\n");
+             }
+         }
++    }
++}
++
++/* Called with BQL, never while holding buf_mutex across a HAL call. */
++static void coreaudio_debug_report(coreaudioVoiceOut *core, const char *reason)
++{
++    uint64_t callbacks, frames, underruns, underrun_frames;
++    size_t pending;
++
++    if (!core->debug_diagnostics ||
++        coreaudio_buf_lock(core, "coreaudio_debug_report")) {
++        return;
++    }
++    callbacks = core->io_callbacks;
++    frames = core->io_frames;
++    underruns = core->io_underruns;
++    underrun_frames = core->io_underrun_frames;
++    pending = core->hw.pending_emul;
++    coreaudio_buf_unlock(core, "coreaudio_debug_report");
++    dolog("W800_COREAUDIO_DEBUG reason=%s realtime_ns=%" PRId64
++          " deferred=%" PRIu64
++          " cancelled=%" PRIu64 " expired=%" PRIu64
++          " hal_starts=%" PRIu64 " hal_stops=%" PRIu64
++          " callbacks=%" PRIu64 " delivered_frames=%" PRIu64
++          " underruns=%" PRIu64 " underrun_frames=%" PRIu64
++          " pending_bytes=%zu\n",
++          reason, qemu_clock_get_ns(QEMU_CLOCK_REALTIME),
++          core->debug_deferred, core->debug_cancelled,
++          core->debug_expired, core->hal_start_calls, core->hal_stop_calls,
++          callbacks, frames, underruns, underrun_frames, pending);
++}
++
++static void coreaudio_debug_stop(void *opaque)
++{
++    coreaudioVoiceOut *core = opaque;
++
++    /* REALTIME remains active while the guest is stopped at a breakpoint. */
++    if (!core->enabled) {
++        core->debug_expired++;
++        update_device_playback_state(core);
++        coreaudio_debug_report(core, "debug-timeout");
+     }
+ }
+ 
+@@ -544,6 +717,10 @@
+ 
+     bql_lock();
+ 
++    /* A replacement device has no running IOProc to retain across resume. */
++    if (core->debug_stop_timer) {
++        timer_del(core->debug_stop_timer);
++    }
+     if (core->outputDeviceID) {
+         fini_out_device(core);
+     }
+@@ -566,6 +743,10 @@
+     AudiodevCoreaudioPerDirectionOptions *cpdo = dev->u.coreaudio.out;
+     struct audsettings obt_as;
+ 
++    core->debug_stop_grace = cpdo->has_debug_stop_grace ?
++                             cpdo->debug_stop_grace : 0;
++    core->debug_diagnostics = cpdo->has_debug_stop_grace;
++
+     /* create mutex */
+     err = pthread_mutex_init(&core->buf_mutex, NULL);
+     if (err) {
+@@ -589,6 +770,7 @@
+     if (status != kAudioHardwareNoError) {
+         coreaudio_playback_logerr (status,
+                                    "Could not listen to voice property change\n");
++        pthread_mutex_destroy(&core->buf_mutex);
+         return -1;
+     }
+ 
+@@ -602,9 +784,14 @@
+                                       "Could not remove voice property change listener\n");
+         }
+ 
++        pthread_mutex_destroy(&core->buf_mutex);
+         return -1;
+     }
+ 
++    if (core->debug_stop_grace) {
++        core->debug_stop_timer = timer_new_us(QEMU_CLOCK_REALTIME,
++                                             coreaudio_debug_stop, core);
++    }
+     return 0;
+ }
+ 
+@@ -614,6 +801,11 @@
+     int err;
+     coreaudioVoiceOut *core = (coreaudioVoiceOut *) hw;
+ 
++    if (core->debug_stop_timer) {
++        timer_del(core->debug_stop_timer);
++        timer_free(core->debug_stop_timer);
++        core->debug_stop_timer = NULL;
++    }
+     status = AudioObjectRemovePropertyListener(kAudioObjectSystemObject,
+                                                &voice_addr,
+                                                handle_voice_change,
+@@ -623,6 +815,7 @@
+     }
+ 
+     fini_out_device(core);
++    coreaudio_debug_report(core, "close");
+ 
+     /* destroy mutex */
+     err = pthread_mutex_destroy(&core->buf_mutex);
+@@ -635,12 +828,53 @@
+ {
+     coreaudioVoiceOut *core = (coreaudioVoiceOut *) hw;
+ 
++    if (core->debug_stop_timer) {
++        if (!enable && runstate_check(RUN_STATE_DEBUG)) {
++            if (core->enabled) {
++                /* Do not extend the deadline on repeated disable requests. */
++                core->enabled = false;
++                core->debug_deferred++;
++                timer_mod(core->debug_stop_timer,
++                          qemu_clock_get_us(QEMU_CLOCK_REALTIME) +
++                          core->debug_stop_grace);
++                return;
++            }
++            if (timer_pending(core->debug_stop_timer)) {
++                return;
++            }
++        }
++        if (timer_pending(core->debug_stop_timer)) {
++            timer_del(core->debug_stop_timer);
++            if (enable) {
++                /* Retain PCM; also handle an output-device replacement. */
++                core->debug_cancelled++;
++                core->enabled = true;
++                update_device_playback_state(core);
++                return;
++            }
++        }
++    }
+     core->enabled = enable;
+     update_device_playback_state(core);
++    if (!enable) {
++        coreaudio_debug_report(core, "stop");
++    }
+ }
+ 
+ static void *coreaudio_audio_init(Audiodev *dev, Error **errp)
+ {
++    AudiodevCoreaudioPerDirectionOptions *out = dev->u.coreaudio.out;
++    AudiodevCoreaudioPerDirectionOptions *in = dev->u.coreaudio.in;
++
++    if (out->has_debug_stop_grace && out->debug_stop_grace > 1000000) {
++        error_setg(errp, "CoreAudio out.debug-stop-grace must be at most "
++                   "1000000 microseconds");
++        return NULL;
++    }
++    if (in->has_debug_stop_grace && in->debug_stop_grace) {
++        error_setg(errp, "CoreAudio debug-stop-grace is playback-only");
++        return NULL;
++    }
+     return dev;
+ }
+ 
+--- a/qapi/audio.json
++++ b/qapi/audio.json
+@@ -158,12 +158,19 @@
+ #
+ # @buffer-count: number of buffers
+ #
++# @debug-stop-grace: playback-only host stop delay in
++#     microseconds (W800 extension; default 0, maximum 1000000).
++#     Resume cancels a pending debugger stop.  Other stop
++#     reasons and device close stop immediately.  Queued PCM
++#     is retained.
++#
+ # Since: 4.0
+ ##
+ { 'struct': 'AudiodevCoreaudioPerDirectionOptions',
+   'base': 'AudiodevPerDirectionOptions',
+   'data': {
+-    '*buffer-count': 'uint32' } }
++    '*buffer-count': 'uint32',
++    '*debug-stop-grace': 'uint32' } }
+ 
+ ##
+ # @AudiodevCoreaudioOptions:

@@ -1,0 +1,125 @@
+{
+  "source": "Reviewed original R1L002 English installer text under built-in red and Default.thm orange themes",
+  "masks": {
+    "light": "RGB components all greater than235",
+    "dark": "RGB components all less than128"
+  },
+  "dialogs": {
+    "save_games": {
+      "regions": [
+        {
+          "rect": [
+            52,
+            24,
+            75,
+            22
+          ],
+          "mask": "light",
+          "sha256": "cda8e93a221120472fe1f92c2565313e4559f2888d88f55a7d35149f4fe54f8a",
+          "foreground_pixels": 338
+        },
+        {
+          "rect": [
+            24,
+            77,
+            58,
+            19
+          ],
+          "mask": "dark",
+          "sha256": "2c5601bfbf1cc9847361a65882aa426f53ca0117be723f7ad33031bd391a95cb",
+          "foreground_pixels": 319
+        }
+      ],
+      "source_images": [
+        "puzzle-direct-save-games.png",
+        "java-orange-save-games.png"
+      ]
+    },
+    "save_applications": {
+      "regions": [
+        {
+          "rect": [
+            52,
+            24,
+            75,
+            22
+          ],
+          "mask": "light",
+          "sha256": "cda8e93a221120472fe1f92c2565313e4559f2888d88f55a7d35149f4fe54f8a",
+          "foreground_pixels": 338
+        },
+        {
+          "rect": [
+            24,
+            54,
+            120,
+            20
+          ],
+          "mask": "dark",
+          "sha256": "ef77e6571b64249a575b9b738fbff98b10b2b2ad88fb988e34660d07d413a63f",
+          "foreground_pixels": 638
+        }
+      ],
+      "source_images": [
+        "puzzle-direct-save-applications.png",
+        "java-orange-save-applications.png"
+      ]
+    },
+    "start_now": {
+      "regions": [
+        {
+          "rect": [
+            8,
+            65,
+            160,
+            100
+          ],
+          "mask": "light",
+          "sha256": "5b581d68dc2048cfa8c8fbbf5eff6dbaddddfeb3bf1ace6d0bc39f39752c33c7",
+          "foreground_pixels": 494
+        }
+      ],
+      "source_images": [
+        "quadrapop-direct-install-result.png",
+        "java-orange-start-now-confirmed.png"
+      ]
+    },
+    "saved_games": {
+      "regions": [
+        {
+          "rect": [
+            8,
+            65,
+            160,
+            100
+          ],
+          "mask": "light",
+          "sha256": "b9b248e6bbe3664b7866c7c730a5ab169177bc6bc5f18a06368ba8267ba6a167",
+          "foreground_pixels": 1565
+        }
+      ],
+      "source_images": [
+        "quadrapop-native-start-now.png",
+        "java-orange-saved-games.png"
+      ]
+    },
+    "saved_applications": {
+      "regions": [
+        {
+          "rect": [
+            8,
+            65,
+            160,
+            100
+          ],
+          "mask": "light",
+          "sha256": "5bea6d2ff23cf5788e1c8ccbf67410eee871cd0ee316d1fb3dba49eda133c94d",
+          "foreground_pixels": 1890
+        }
+      ],
+      "source_images": [
+        "worldclock-native/03-install-result.png"
+      ]
+    }
+  }
+}

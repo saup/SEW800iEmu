@@ -1,0 +1,215 @@
+--- a/hw/block/pflash_cfi01.c
++++ b/hw/block/pflash_cfi01.c
+@@ -39,6 +39,7 @@
+ #include "qemu/osdep.h"
+ #include "hw/block/block.h"
+ #include "hw/block/flash.h"
++#include "hw/loader.h"
+ #include "hw/qdev-properties.h"
+ #include "hw/qdev-properties-system.h"
+ #include "system/block-backend.h"
+@@ -85,6 +86,11 @@
+     void *storage;
+     VMChangeStateEntry *vmstate;
+     bool old_multiple_chip_handling;
++    bool w800_read_compat;
++    bool w800_rom_layout;
++    char *w800_otp_file;
++    uint8_t w800_otp[18];
++    uint32_t w800_partition;
+ 
+     /* block update buffer */
+     unsigned char *blk_bytes;
+@@ -152,6 +158,7 @@
+      * so that they will match the addresses used when
+      * device_width==max_device_width.
+      */
++    if (pfl->w800_read_compat) { offset &= 0xfffff; }
+     boff = offset >> (ctz32(pfl->bank_width) +
+                       ctz32(pfl->max_device_width) - ctz32(pfl->device_width));
+ 
+@@ -212,6 +219,7 @@
+      * lower so that they will match the addresses used when
+      * device_width==max_device_width.
+      */
++    if (pfl->w800_read_compat) { offset &= 0xfffff; }
+     boff = offset >> (ctz32(pfl->bank_width) +
+                       ctz32(pfl->max_device_width) - ctz32(pfl->device_width));
+ 
+@@ -220,6 +228,16 @@
+      * or sector lock status at other addresses.
+      * Offsets 2/3 are block lock status, is not emulated.
+      */
++    /* L18 table17: lock80h, factory81h..84h, user85h..88h. These read-only
++     * input bytes are erased unless supplied explicitly by the caller.
++     * No identity is derived from firmware validation results. */
++    if (pfl->w800_rom_layout && boff >= 0x80 && boff <= 0x88) {
++        return lduw_le_p(pfl->w800_otp + 2 * (boff - 0x80));
++    }
++    /* Intel L18 exposes CFI information in Read ID/Query mode (90/98). */
++    if (pfl->w800_read_compat && boff >= 0x10) {
++        return pflash_cfi_query(pfl, offset);
++    }
+     switch (boff & 0xFF) {
+     case 0:
+         resp = pfl->ident0;
+@@ -266,6 +284,12 @@
+     hwaddr boff;
+     uint32_t ret;
+ 
++    /* L18 datasheet section 14: independent 8-Mbit read partitions.
++     * A status/query response in one partition must not replace executable
++     * array bytes in another. This model permits one active write operation. */
++    if (pfl->w800_read_compat && (offset >> 20) != pfl->w800_partition) {
++        return pflash_data_read(pfl, offset, width, be);
++    }
+     ret = -1;
+     switch (pfl->cmd) {
+     default:
+@@ -377,6 +401,12 @@
+ 
+         break;
+     }
++    /* MAIN probes QRY using byte loads on a 16-bit bus, including the
++     * zero-padded high byte. Select the addressed lane of query/ID words. */
++    if (pfl->w800_read_compat && pfl->bank_width == 2 && width == 1 &&
++        (pfl->cmd == 0x98 || pfl->cmd == 0x90)) {
++        ret = (ret >> ((offset & 1) * 8)) & 0xff;
++    }
+     trace_pflash_io_read(pfl->name, offset, width, ret, pfl->cmd, pfl->wcycle);
+ 
+     return ret;
+@@ -466,9 +496,19 @@
+     uint8_t cmd;
+ 
+     cmd = value;
++    /* W800's original Intel driver issues Set Read Configuration (60/03)
++     * from query mode. Generic CFI01 otherwise remains in query mode and
++     * returns query bytes as executable instructions after the driver exits.
++     * This compatibility switch is exclusive to the experimental W800 board;
++     * electrical burst configuration and timing are not modeled. */
++    if (pfl->w800_read_compat && pfl->wcycle == 1 &&
++        pfl->cmd == 0x98 && cmd == 0x60) {
++        pfl->wcycle = 0;
++    }
+ 
+     trace_pflash_io_write(pfl->name, offset, width, value, pfl->wcycle);
+     if (!pfl->wcycle) {
++        if (pfl->w800_read_compat) { pfl->w800_partition = offset >> 20; }
+         /* Set the device in I/O access mode */
+         memory_region_rom_device_set_romd(&pfl->mem, false);
+     }
+@@ -483,20 +523,25 @@
+         case 0x40: /* Single Byte Program */
+             trace_pflash_write(pfl->name, "single byte program (0)");
+             break;
+-        case 0x20: /* Block erase */
++        case 0x20: { /* Block erase */
++            /* Intel 880D: 255 main blocks and four top parameter blocks,
++             * as reported by the physical W800i flash driver. */
++            uint32_t erase_len = pfl->w800_read_compat ?
++                (offset >= 0x1fe0000 ? 0x8000 : 0x20000) : pfl->sector_len;
+             p = pfl->storage;
+-            offset &= ~(pfl->sector_len - 1);
+-
+-            trace_pflash_write_block_erase(pfl->name, offset, pfl->sector_len);
++            offset &= ~(erase_len - 1);
++
++            trace_pflash_write_block_erase(pfl->name, offset, erase_len);
+ 
+             if (!pfl->ro) {
+-                memset(p + offset, 0xff, pfl->sector_len);
+-                pflash_update(pfl, offset, pfl->sector_len);
++                memset(p + offset, 0xff, erase_len);
++                pflash_update(pfl, offset, erase_len);
+             } else {
+                 pfl->status |= 0x20; /* Block erase error */
+             }
+             pfl->status |= 0x80; /* Ready! */
+             break;
++        }
+         case 0x50: /* Clear status bits */
+             trace_pflash_write(pfl->name, "clear status bits");
+             pfl->status = 0x0;
+@@ -599,7 +644,13 @@
+         switch (pfl->cmd) {
+         case 0xe8: /* Block write */
+             /* FIXME check @offset, @width */
+-            if (pfl->blk_offset == -1 && pfl->counter) {
++            /* Intel L18's count is N-1: zero loads one word. Original
++             * W800 MAIN uses this for a one-word tail after splitting a
++             * buffered write at a 64-byte boundary (L18 table 8, sec. 11.2).
++             * The generic counter truth check otherwise aborts valid data.
++             */
++            if (pfl->blk_offset == -1 &&
++                (pfl->counter || pfl->w800_read_compat)) {
+                 pflash_blk_write_start(pfl, offset);
+             }
+             if (!pfl->ro && (pfl->blk_offset != -1)) {
+@@ -764,6 +815,9 @@
+     } else {
+         pfl->cfi_table[0x2A] = 0x0B;
+     }
++    if (pfl->w800_read_compat) {
++        pfl->cfi_table[0x2A] = 6; /* L18: 32 words / 64 bytes. */
++    }
+     pfl->writeblock_size = 1 << pfl->cfi_table[0x2A];
+     if (!pfl->old_multiple_chip_handling && num_devices > 1) {
+         pfl->writeblock_size *= num_devices;
+@@ -797,6 +851,28 @@
+     pfl->cfi_table[0x3c] = 0x00;
+ 
+     pfl->cfi_table[0x3f] = 0x01; /* Number of protection fields */
++    if (pfl->w800_rom_layout) {
++        /* First L18 field: word80h, eight factory and eight user bytes.
++         * Additional fields and OTP programming remain unmodeled. */
++        pfl->cfi_table[0x40] = 0x80;
++        pfl->cfi_table[0x41] = 0;
++        pfl->cfi_table[0x42] = 3;
++        pfl->cfi_table[0x43] = 3;
++    }
++    if (pfl->w800_read_compat) {
++        /* Make room for the second region without overlapping PRI/OTP. */
++        memmove(&pfl->cfi_table[0x35], &pfl->cfi_table[0x31], 0x13);
++        pfl->cfi_table[0x15] = 0x35;
++        pfl->cfi_table[0x2c] = 2;
++        pfl->cfi_table[0x2d] = 0xfe;
++        pfl->cfi_table[0x2e] = 0;
++        pfl->cfi_table[0x2f] = 0;
++        pfl->cfi_table[0x30] = 2;
++        pfl->cfi_table[0x31] = 3;
++        pfl->cfi_table[0x32] = 0;
++        pfl->cfi_table[0x33] = 0x80;
++        pfl->cfi_table[0x34] = 0;
++    }
+ }
+ 
+ static void pflash_cfi01_realize(DeviceState *dev, Error **errp)
+@@ -805,6 +881,17 @@
+     PFlashCFI01 *pfl = PFLASH_CFI01(dev);
+     uint64_t total_len;
+     int ret;
++
++    memset(pfl->w800_otp, 0xff, sizeof(pfl->w800_otp));
++    if (pfl->w800_otp_file) {
++        uint8_t input[19];
++        if (!pfl->w800_rom_layout ||
++            load_image_size(pfl->w800_otp_file, input, sizeof(input)) != sizeof(pfl->w800_otp)) {
++            error_setg(errp, "w800-otp-file requires ROM layout and exactly 18 raw bytes");
++            return;
++        }
++        memcpy(pfl->w800_otp, input, sizeof(pfl->w800_otp));
++    }
+ 
+     if (pfl->sector_len == 0) {
+         error_setg(errp, "attribute \"sector-length\" not specified or zero.");
+@@ -896,6 +983,9 @@
+ }
+ 
+ static const Property pflash_cfi01_properties[] = {
++    DEFINE_PROP_BOOL("w800-read-compat", PFlashCFI01, w800_read_compat, false),
++    DEFINE_PROP_BOOL("w800-rom-layout", PFlashCFI01, w800_rom_layout, false),
++    DEFINE_PROP_STRING("w800-otp-file", PFlashCFI01, w800_otp_file),
+     DEFINE_PROP_DRIVE("drive", PFlashCFI01, blk),
+     /* num-blocks is the number of blocks actually visible to the guest,
+      * ie the total size of the device divided by the sector length.

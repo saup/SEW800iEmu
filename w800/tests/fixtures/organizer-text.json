@@ -1,0 +1,101 @@
+{
+  "calculator_five": {
+    "rect": [
+      110,
+      85,
+      57,
+      35
+    ],
+    "sha256": "bd6b2e6520c8d8e4d2440b1e9b8c04a6574e3734cd830a9d19e7b64563a25ee2",
+    "source_capture": "06-calculator-two-plus-three.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "calculator_forty_eight": {
+    "rect": [
+      110,
+      85,
+      57,
+      35
+    ],
+    "sha256": "37e5b27b6e2532f5fb4197fd72b62a317e9ef6cb61e55a09cefdcfc76a3e7421",
+    "source_capture": "12-calculator-twelve-times-four-result.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "calculator_two_point_two_five": {
+    "rect": [
+      110,
+      85,
+      57,
+      35
+    ],
+    "sha256": "6c309dd0b12912dbce8664785ec450a87ce2a15a707ac8097f5bc5b79bb16329",
+    "source_capture": "13-calculator-nine-divided-four-result.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "calculator_zero": {
+    "rect": [
+      110,
+      85,
+      57,
+      35
+    ],
+    "sha256": "c53a010ea042beb41d8e511b781d378a0eea87c0ae6abea97fc9e53cd624eb5f",
+    "source_capture": "14-calculator-hold-clear.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "stopwatch_two_laps": {
+    "rect": [
+      18,
+      132,
+      32,
+      23
+    ],
+    "sha256": "1e387fdf1f4de62bd3c2b6f8f4898b0ec6d3229db71fc2cfe927afbb28dc82ee",
+    "source_capture": "22-stopwatch-new-lap.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "task_not_done": {
+    "rect": [
+      4,
+      52,
+      100,
+      35
+    ],
+    "sha256": "a1a02a1283706e9a67b13d3eda12d9d04cc3d21f571fb10d4f12927ec23f3ac3",
+    "source_capture": "50-task-saved-open.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "task_done": {
+    "rect": [
+      4,
+      70,
+      34,
+      18
+    ],
+    "sha256": "fc4ac639841a8a0dd76a62e13c9ee213ce12b66a50c3f6d02f97d64c5bcc5802",
+    "source_capture": "54-task-marked-done.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "note_Be": {
+    "rect": [
+      4,
+      52,
+      100,
+      30
+    ],
+    "sha256": "f3b97ad4f1d0ac397b586ba879403a5852fccfb43968a178c49a4fe43f2398b4",
+    "source_capture": "59-note-reopened.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  },
+  "note_Test": {
+    "rect": [
+      4,
+      52,
+      100,
+      30
+    ],
+    "sha256": "30e492ce72b2c9dcaf15ca975e12c6a670ccc7e531c24ed52b73ca0fc5cff300",
+    "source_capture": "64-note-edited-reopened.png",
+    "review": "Original LCD visually reviewed during physical-key audit; no host-rendered text"
+  }
+}

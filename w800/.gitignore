@@ -1,0 +1,12 @@
+build/
+reference/qemu-*/
+reference/*.tar.xz
+firmware/*.bin
+firmware/*.zip
+firmware/prepared/
+__pycache__/
+tests/__pycache__/
+reports/*.log
+reports/*.bin
+reports/*.c
+firmware/topsony/

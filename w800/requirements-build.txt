@@ -1,0 +1,3 @@
+# In addition to the parent project's runtime requirements.
+meson==1.12.0
+ninja==1.13.2

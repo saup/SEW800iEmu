@@ -1,0 +1,89 @@
+{
+  "source": "Reviewed original WorldClock3D2.0.7 LCD regions under Default.thm orange",
+  "regions": {
+    "applications_title": {
+      "source": "19-world-clock-exited.png",
+      "rect": [
+        25,
+        23,
+        127,
+        22
+      ],
+      "mask": "light",
+      "sha256": "9cac9d610be3b37580487a1f9d5ebd11e1f4b6291af1423985e5933094fcc9b3",
+      "foreground_pixels": 644
+    },
+    "world_clock_entry": {
+      "source": "19-world-clock-exited.png",
+      "rect": [
+        42,
+        54,
+        100,
+        20
+      ],
+      "mask": "dark",
+      "sha256": "180bde1be52c8aaad6317dce36623293514e85e792dab4022c496bc3f3d5ec71",
+      "foreground_pixels": 597
+    },
+    "english": {
+      "source": "09-world-clock-launch.png",
+      "rect": [
+        61,
+        75,
+        52,
+        16
+      ],
+      "mask": "light",
+      "sha256": "508da5d90ad0047eac9708e1bf8283db0ace3ae84efe8f6ae9d149cdc8a1da65",
+      "foreground_pixels": 241
+    },
+    "utc": {
+      "source": "11-world-clock-map.png",
+      "rect": [
+        148,
+        161,
+        28,
+        16
+      ],
+      "mask": "light",
+      "sha256": "392dc0e5119d2fff9d5018c13aa5d7ec8ecbc3bc3165431e48fcd2069ffafce0",
+      "foreground_pixels": 109
+    },
+    "lahore_list": {
+      "source": "16-world-clock-lahore.png",
+      "rect": [
+        60,
+        95,
+        57,
+        17
+      ],
+      "mask": "light",
+      "sha256": "c0a1641c8e5fcc3cdf9adf8c2826cda41e819b5ffc8dd38ddae54468c5d99262",
+      "foreground_pixels": 218
+    },
+    "lahore_globe": {
+      "source": "17-world-clock-lahore-globe.png",
+      "rect": [
+        126,
+        162,
+        50,
+        17
+      ],
+      "mask": "light",
+      "sha256": "fddf256b72313f9a8f7b5bf6d34be38e2f5756e94254428a690f6fff6ee0bae5",
+      "foreground_pixels": 202
+    },
+    "exit": {
+      "source": "18-world-clock-exit-selected.png",
+      "rect": [
+        61,
+        134,
+        49,
+        17
+      ],
+      "mask": "light",
+      "sha256": "e7ecf1dd38adc1e494d242b363be87c4e73fe5e9e60c019030d68baec36a4cdf",
+      "foreground_pixels": 149
+    }
+  }
+}
