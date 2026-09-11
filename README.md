@@ -1,4 +1,4 @@
-# W800EmuToShare — Sony Ericsson W800i Emulator
+Sony Ericsson W800i Emulator
 
 ![GUI](GUI.png)
 
